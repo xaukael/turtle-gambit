@@ -40,6 +40,7 @@ export class Turtle extends EventEmitter {
 	z: number = 0;
 	d: Direction = 0;
 	mining: boolean = false;
+	location: string = '';
 
 	constructor(ws: WebSocket, world: World) {
 		super();
@@ -56,6 +57,15 @@ export class Turtle extends EventEmitter {
 			}
 			this.id = await this.exec<number>('os.getComputerID()');
 			[this.x, this.y, this.z, this.d] = this.world.getTurtle(this);
+			this.location = await this.locate<string>();
+			// if the turtle has not sent coordinates since reboot update the coordinates
+			if (Number(this.location.split(',')[3]) !== -1){
+				this.x = Number(this.location.split(',')[0]);
+				this.y = Number(this.location.split(',')[1]);
+				this.z = Number(this.location.split(',')[2]);
+				this.d = Number(this.location.split(',')[3]);
+			}
+
 			this.selectedSlot = await this.exec<number>('turtle.getSelectedSlot()');
 			this.maxFuel = await this.exec<number>('turtle.getFuelLimit()');
 			this.fuel = await this.exec<number>('turtle.getFuelLevel()');
@@ -77,7 +87,8 @@ export class Turtle extends EventEmitter {
 			fuel: this.fuel,
 			maxFuel: this.maxFuel,
 			id: this.id,
-			mining: this.mining
+			mining: this.mining,
+			location: this.location
 		};
 	}
 
@@ -104,6 +115,27 @@ export class Turtle extends EventEmitter {
 		});
 	}
 
+	locate<T>(): Promise<T> {
+		return new Promise(r => {
+			const nonce = getNonce();
+			this.ws.send(JSON.stringify({
+				type: 'locate',
+				nonce
+			}));
+
+			const listener = async (resp: string) => {
+				try {
+					let res = JSON.parse(resp);
+					if (res.nonce === nonce) {
+						r(res.data);
+						this.ws.off('message', listener);
+					}
+				} catch (e) { }
+			}
+
+			this.ws.on('message', listener);
+		});
+	}
 
 	async forward(): Promise<boolean> {
 		let r = await this.exec<boolean>('turtle.forward()');
