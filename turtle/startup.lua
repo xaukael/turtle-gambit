@@ -593,18 +593,52 @@ function mineTunnel(obj, ws)
 	return blocks
 end
 
+
+
+function getPosition()
+    loc1 = vector.new(gps.locate(2, false))
+    if not turtle.forward() then
+       turtle.dig()
+       turtle.forward()      
+    end
+
+    loc2 = vector.new(gps.locate(2, false))
+    heading = loc2 - loc1
+    turtle.back()
+
+    x, y, z = gps.locate(2, false)
+    -- PLACE THE TURTLE AND GET THIS TO MATCH THE Direction INDECIES IN turtle.ts
+    d = (((heading.x + math.abs(heading.x) * 2) + (heading.z + math.abs(heading.z) * 3)) - 2) % 4
+    -- print('Position: ' .. x .. ', ' .. y ..  ', ' .. z  .. ', ' .. d)
+    return x, y, z, d 
+end
+
+local xGPS, yGPS, zGPS, dGPS = getPosition()
+-- print('Position: ' .. xGPS .. ', ' .. yGPS ..  ', ' .. zGPS  .. ', ' .. dGPS)
+
+local location =  xGPS .. ',' .. yGPS ..  ',' .. zGPS  .. ',' .. dGPS 
+
+-- print(location)
+function getLocation()
+    return location
+end
+
 function websocketLoop()
 	
-	local ws, err = http.websocket("ws://ottomated.net:43509")
+	local ws, err = http.websocket("ws://localhost:5757")
  
 	if err then
 		print(err)
-	elseif ws then
+    elseif ws then
+        
 		while true do
 			term.clear()
 			term.setCursorPos(1,1)
 			print("      {O}\n")
-			print("Pog Turtle OS. Do not read my code unless you are 5Head.")
+            print("Pog Turtle OS. Do not read my code unless you are 5Head.")
+            print('Computer: #' .. os.getComputerID() .. "-" .. os.getComputerLabel())
+            print('Reboot Position: ' .. xGPS .. ',' .. yGPS ..  ',' .. zGPS  .. ',' .. dGPS)
+            print('Reporting Position: ' .. location)
 			local message = ws.receive()
 			if message == nil then
 				break
@@ -625,7 +659,10 @@ function websocketLoop()
 				end
 			elseif obj.type == 'mine' then
 				local status, res = pcall(mineTunnel, obj, ws)
-				ws.send(json.encode({data="end", nonce=obj.nonce}))
+                ws.send(json.encode({data="end", nonce=obj.nonce}))
+            elseif obj.type == 'locate' then
+                ws.send(json.encode({data=location, nonce=obj.nonce}))
+                location = '0,0,0,-1'
 			end
 		end
 	end
@@ -644,6 +681,7 @@ while true do
 		print("Read my code, Michael.")
 		break
 	end
-	print("{O} I'm sleeping... please don't mine me :)")
+    print("{O} I'm sleeping... please don't mine me :)")
+    print('Position: ' .. xGPS .. ', ' .. yGPS ..  ', ' .. zGPS  .. ', ' .. dGPS)
 	os.sleep(5)
 end
